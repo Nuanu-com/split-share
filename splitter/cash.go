@@ -2,7 +2,6 @@ package splitter
 
 import (
 	"errors"
-	"fmt"
 )
 
 type Cash[T any] struct{}
@@ -30,12 +29,7 @@ func (c *Cash[T]) Breakdown(params SplitParams[T]) ([]*SplitResult[T], error) {
 
 		for _, share := range split.SplitRules {
 			currentSharePercent += share.Amount
-
 			revenue := round(float64(cost) * share.Amount / float64(100))
-			fmt.Printf("revenue: %d \n", revenue)
-			fmt.Printf("cost: %d \n", cost)
-			fmt.Printf("percent amount: %f \n", share.Amount)
-
 			currentRevenue += revenue
 
 			currentShare := &Share{
@@ -51,6 +45,7 @@ func (c *Cash[T]) Breakdown(params SplitParams[T]) ([]*SplitResult[T], error) {
 			diff := currentResult.NetCost - currentRevenue
 			if len(currentResult.Shares) > 0 {
 				currentResult.Shares[0].NetRevenue = currentResult.Shares[0].NetRevenue + diff
+				currentResult.Shares[0].GrossRevenue = currentResult.Shares[0].GrossRevenue + diff
 			}
 		}
 
