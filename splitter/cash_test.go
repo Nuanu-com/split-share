@@ -1,6 +1,7 @@
 package splitter_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -186,5 +187,96 @@ func TestCashBreakdownSuccess(t *testing.T) {
 
 	if len(result) != 2 {
 		t.Errorf("got: %d, wants: 2", len(result))
+	}
+}
+
+// 0.1 + 64.1 + 35.8 is exactly 100 in decimal but 99.99999999999998 in float64,
+// so an exact comparison rejects a legitimate split.
+func TestCashPercentWithFloatRepresentationError(t *testing.T) {
+	result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
+		GrossRevenue:  100_000,
+		NetRevenue:    100_000,
+		PaymentVendor: splitter.VendorCash,
+		Splits: []*splitter.ItemSplit[int]{
+			{
+				ItemID:   1,
+				Price:    100_000,
+				Quantity: 1,
+				SplitRules: []*splitter.SplitRule{
+					{DepartmentID: uuid.New(), Amount: 0.1},
+					{DepartmentID: uuid.New(), Amount: 64.1},
+					{DepartmentID: uuid.New(), Amount: 35.8},
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("got: %s, wants: nil", err.Error())
+	}
+
+	total := int64(0)
+	for _, s := range result[0].Shares {
+		total += s.GrossRevenue
+	}
+
+	if total != 100_000 {
+		t.Errorf("got: %d, wants: 100000", total)
+	}
+}
+
+func TestCashSharesAlwaysAddUpToCost(t *testing.T) {
+	// Odd totals across three-way splits are the worst case for rounding.
+	for price := int64(1); price <= 500; price++ {
+		result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
+			GrossRevenue:  price,
+			NetRevenue:    price,
+			PaymentVendor: splitter.VendorCash,
+			Splits: []*splitter.ItemSplit[int]{
+				{
+					ItemID:   1,
+					Price:    price,
+					Quantity: 1,
+					SplitRules: []*splitter.SplitRule{
+						{DepartmentID: uuid.New(), Amount: 33.33},
+						{DepartmentID: uuid.New(), Amount: 33.33},
+						{DepartmentID: uuid.New(), Amount: 33.34},
+					},
+				},
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("price %d: got: %s, wants: nil", price, err.Error())
+		}
+
+		gross, net := int64(0), int64(0)
+		for _, s := range result[0].Shares {
+			gross += s.GrossRevenue
+			net += s.NetRevenue
+		}
+
+		if gross != price || net != price {
+			t.Errorf("price %d: gross=%d net=%d, wants both %d", price, gross, net, price)
+		}
+	}
+}
+
+func TestCashErrorsAreComparable(t *testing.T) {
+	_, err := splitter.BreakdownCash(splitter.SplitParams[int]{
+		GrossRevenue: 100,
+		NetRevenue:   100,
+		Splits: []*splitter.ItemSplit[int]{
+			{
+				ItemID:     1,
+				Price:      100,
+				Quantity:   1,
+				SplitRules: []*splitter.SplitRule{{DepartmentID: uuid.New(), Amount: 50}},
+			},
+		},
+	})
+
+	if !errors.Is(err, splitter.ErrSharePercentNot100) {
+		t.Errorf("got: %v, wants: ErrSharePercentNot100", err)
 	}
 }

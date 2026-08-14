@@ -11,14 +11,18 @@ type MandiriParams[T any] struct {
 }
 
 func BreakdownMandiri[T any](params MandiriParams[T]) ([]*SplitResult[T], error) {
-	results := make([]*SplitResult[T], 0)
+	results := make([]*SplitResult[T], 0, len(params.Splits))
 
 	totalCost := int64(0)
 	totalNetCost := int64(0)
 
 	for _, item := range params.Splits {
+		if !isFullShare(totalSharePercent(item.SplitRules)) {
+			return nil, ErrSharePercentNot100
+		}
+
 		cost := item.Price * item.Quantity
-		netCost := minusPercent(item.Price*item.Quantity, params.MDR) + round(float64(cost)*params.DCC/100)
+		netCost := minusPercent(cost, params.MDR) + round(float64(cost)*params.DCC/100)
 
 		totalCost += cost
 		totalNetCost += netCost
@@ -61,12 +65,18 @@ func BreakdownMandiri[T any](params MandiriParams[T]) ([]*SplitResult[T], error)
 		results = append(results, currentResult)
 	}
 
-	if totalNetCost != (params.NetAmount+params.DCCAmount) && len(results) > 0 {
-		diff := (params.NetAmount + params.DCCAmount) - totalNetCost
-		results[0].NetCost += diff
+	if totalCost != params.GrossAmount {
+		return nil, ErrTotalMismatch
+	}
 
-		if len(results[0].Shares) > 0 {
-			results[0].Shares[0].NetRevenue += diff
+	// Per-item MDR/DCC rounding drifts from the amount the vendor actually
+	// settled; charge the difference to the largest item that has shares.
+	expectedNet := params.NetAmount + params.DCCAmount
+	if totalNetCost != expectedNet {
+		if target := reconcileIndex(results); target != -1 {
+			diff := expectedNet - totalNetCost
+			results[target].NetCost += diff
+			results[target].Shares[0].NetRevenue += diff
 		}
 	}
 

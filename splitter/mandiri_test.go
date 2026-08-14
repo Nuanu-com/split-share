@@ -1,6 +1,7 @@
 package splitter_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/Nuanu-com/split-share/splitter"
@@ -203,4 +204,105 @@ func TestMandiriSuccessWithDCC(t *testing.T) {
 	assert.Equal(t, result[2].Shares[0].DepartmentID, department1)
 	assert.Equal(t, result[2].Shares[0].GrossRevenue, int64(0))
 	assert.Equal(t, result[2].Shares[0].NetRevenue, int64(0))
+}
+
+func TestMandiriRejectsIncompleteShare(t *testing.T) {
+	department1 := uuid.New()
+
+	res, err := splitter.BreakdownMandiri(splitter.MandiriParams[int]{
+		GrossAmount: 10_000,
+		NetAmount:   10_000,
+		Splits: []*splitter.ItemSplit[int]{
+			{ItemID: 1, Price: 10_000, Quantity: 1, SplitRules: []*splitter.SplitRule{
+				{DepartmentID: department1, Amount: 50},
+			}},
+		},
+	})
+
+	assert.Nil(t, res)
+	assert.ErrorIs(t, err, splitter.ErrSharePercentNot100)
+}
+
+func TestMandiriRejectsTotalMismatch(t *testing.T) {
+	department1 := uuid.New()
+
+	res, err := splitter.BreakdownMandiri(splitter.MandiriParams[int]{
+		GrossAmount: 999_999,
+		NetAmount:   999_999,
+		Splits: []*splitter.ItemSplit[int]{
+			{ItemID: 1, Price: 10_000, Quantity: 1, SplitRules: []*splitter.SplitRule{
+				{DepartmentID: department1, Amount: 100},
+			}},
+		},
+	})
+
+	assert.Nil(t, res)
+	assert.ErrorIs(t, err, splitter.ErrTotalMismatch)
+}
+
+// A giveaway line must not absorb the settlement rounding difference, or a free
+// item reports revenue it never earned.
+func TestMandiriReconcilesAgainstItemWithCost(t *testing.T) {
+	department1 := uuid.New()
+	department2 := uuid.New()
+
+	res, err := splitter.BreakdownMandiri(splitter.MandiriParams[int]{
+		GrossAmount: 100_000,
+		NetAmount:   90_000,
+		MDR:         1.3,
+		MDRAmount:   1_300,
+		Splits: []*splitter.ItemSplit[int]{
+			{ItemID: 0, Price: 0, Quantity: 1, SplitRules: []*splitter.SplitRule{
+				{DepartmentID: department1, Amount: 100},
+			}},
+			{ItemID: 1, Price: 100_000, Quantity: 1, SplitRules: []*splitter.SplitRule{
+				{DepartmentID: department2, Amount: 100},
+			}},
+		},
+	})
+
+	assert.Nil(t, err)
+	assert.Len(t, res, 2)
+
+	assert.Equal(t, int64(0), res[0].NetCost, "free item stays at zero")
+	assert.Equal(t, int64(0), res[0].Shares[0].NetRevenue)
+
+	assert.Equal(t, int64(90_000), res[1].NetCost)
+	assert.Equal(t, int64(90_000), res[1].Shares[0].NetRevenue)
+}
+
+func TestMandiriSharesAddUpToNetCost(t *testing.T) {
+	department1 := uuid.New()
+	department2 := uuid.New()
+	department3 := uuid.New()
+
+	for price := int64(1); price <= 300; price++ {
+		res, err := splitter.BreakdownMandiri(splitter.MandiriParams[int]{
+			GrossAmount: price,
+			NetAmount:   minusMDR(price, 1.3),
+			MDR:         1.3,
+			Splits: []*splitter.ItemSplit[int]{
+				{ItemID: 1, Price: price, Quantity: 1, SplitRules: []*splitter.SplitRule{
+					{DepartmentID: department1, Amount: 33.33},
+					{DepartmentID: department2, Amount: 33.33},
+					{DepartmentID: department3, Amount: 33.34},
+				}},
+			},
+		})
+
+		assert.Nil(t, err)
+
+		gross, net := int64(0), int64(0)
+		for _, s := range res[0].Shares {
+			gross += s.GrossRevenue
+			net += s.NetRevenue
+		}
+
+		assert.Equal(t, res[0].Cost, gross, "gross shares must add up, price %d", price)
+		assert.Equal(t, res[0].NetCost, net, "net shares must add up, price %d", price)
+	}
+}
+
+func minusMDR(value int64, mdr float64) int64 {
+	return int64(math.Round(float64(value) - (float64(value) * mdr / 100)))
 }
