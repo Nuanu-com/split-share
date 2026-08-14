@@ -9,15 +9,14 @@ import (
 )
 
 func TestCashBreakdownPercentNot100(t *testing.T) {
-	c := splitter.NewCash[uuid.UUID]()
 
-	itemID1 := uuid.New()
+	itemID1 := 1
 
-	result, err := c.Breakdown(splitter.SplitParams[uuid.UUID]{
+	result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
 		GrossRevenue:  100_000,
 		NetRevenue:    100_000,
 		PaymentVendor: splitter.VendorCash,
-		Splits: []*splitter.ItemSplit[uuid.UUID]{
+		Splits: []*splitter.ItemSplit[int]{
 			{
 				ItemID:   itemID1,
 				Price:    40_000,
@@ -46,15 +45,14 @@ func TestCashBreakdownPercentNot100(t *testing.T) {
 }
 
 func TestCashBreakdownNotEqualToTotal(t *testing.T) {
-	c := splitter.NewCash[uuid.UUID]()
 
-	itemID1 := uuid.New()
+	itemID1 := 1
 
-	result, err := c.Breakdown(splitter.SplitParams[uuid.UUID]{
+	result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
 		GrossRevenue:  100_000,
 		NetRevenue:    100_000,
 		PaymentVendor: splitter.VendorCash,
-		Splits: []*splitter.ItemSplit[uuid.UUID]{
+		Splits: []*splitter.ItemSplit[int]{
 			{
 				ItemID:   itemID1,
 				Price:    40_000,
@@ -90,14 +88,13 @@ func TestCashBreakdownNotEqualToTotal(t *testing.T) {
 }
 
 func TestCashHandleRounding(t *testing.T) {
-	c := splitter.NewCash[uuid.UUID]()
-	itemID1 := uuid.New()
+	itemID1 := 1
 
-	result, err := c.Breakdown(splitter.SplitParams[uuid.UUID]{
+	result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
 		GrossRevenue:  75,
 		NetRevenue:    75,
 		PaymentVendor: splitter.VendorCash,
-		Splits: []*splitter.ItemSplit[uuid.UUID]{
+		Splits: []*splitter.ItemSplit[int]{
 			{
 				ItemID:   itemID1,
 				Price:    75,
@@ -140,16 +137,15 @@ func TestCashHandleRounding(t *testing.T) {
 }
 
 func TestCashBreakdownSuccess(t *testing.T) {
-	c := splitter.NewCash[uuid.UUID]()
 
-	itemID1 := uuid.New()
-	itemID2 := uuid.New()
+	itemID1 := 1
+	itemID2 := 2
 
-	result, err := c.Breakdown(splitter.SplitParams[uuid.UUID]{
+	result, err := splitter.BreakdownCash(splitter.SplitParams[int]{
 		GrossRevenue:  100_000,
 		NetRevenue:    100_000,
 		PaymentVendor: splitter.VendorCash,
-		Splits: []*splitter.ItemSplit[uuid.UUID]{
+		Splits: []*splitter.ItemSplit[int]{
 			{
 				ItemID:   itemID1,
 				Price:    40_000,

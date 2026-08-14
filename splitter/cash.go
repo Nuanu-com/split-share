@@ -4,10 +4,7 @@ import (
 	"errors"
 )
 
-type Cash[T any] struct{}
-
-// Breakdown implements [defs.Splitter].
-func (c *Cash[T]) Breakdown(params SplitParams[T]) ([]*SplitResult[T], error) {
+func BreakdownCash[T any](params SplitParams[T]) ([]*SplitResult[T], error) {
 	results := make([]*SplitResult[T], 0)
 
 	sharedTotal := int64(0)
@@ -61,8 +58,4 @@ func (c *Cash[T]) Breakdown(params SplitParams[T]) ([]*SplitResult[T], error) {
 	}
 
 	return results, nil
-}
-
-func NewCash[T any]() Splitter[T] {
-	return &Cash[T]{}
 }
