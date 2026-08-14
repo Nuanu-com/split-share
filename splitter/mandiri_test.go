@@ -74,6 +74,7 @@ func TestBreakdownMandiriSuccess(t *testing.T) {
 
 	assert.Equal(t, result[0].Cost, int64(450_000))
 	assert.Equal(t, result[0].NetCost, int64(444_150))
+	assert.Equal(t, result[0].ItemID, item1)
 	assert.Len(t, result[0].Shares, 2)
 
 	assert.Equal(t, result[0].Shares[0].DepartmentID, department1)
@@ -86,6 +87,7 @@ func TestBreakdownMandiriSuccess(t *testing.T) {
 
 	assert.Equal(t, result[1].Cost, int64(80_000))
 	assert.Equal(t, result[1].NetCost, int64(78_960))
+	assert.Equal(t, result[1].ItemID, item2)
 	assert.Len(t, result[1].Shares, 2)
 
 	assert.Equal(t, result[1].Shares[0].DepartmentID, department1)
@@ -98,6 +100,7 @@ func TestBreakdownMandiriSuccess(t *testing.T) {
 
 	assert.Equal(t, result[2].Cost, int64(0))
 	assert.Equal(t, result[2].NetCost, int64(0))
+	assert.Equal(t, result[2].ItemID, item3)
 	assert.Len(t, result[2].Shares, 1)
 
 	assert.Equal(t, result[2].Shares[0].DepartmentID, department1)
